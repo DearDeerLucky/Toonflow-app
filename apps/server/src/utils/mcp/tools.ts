@@ -13,6 +13,8 @@ import { appOperations, runAppOperation } from "@/utils/mcp/operations";
 import { listTools } from "@/utils/plugins/tools";
 import { isWithin, lockWorkspaceFiles, protectWorkspaceRoot, renameWorkspaceFile, resolveWorkspacePath, writeWorkspaceFile } from "@/utils/workspace/files";
 import { getRuntimePlatform } from "@/lib/platform";
+import { scriptRequestSchema } from "@toonflow/node-script/document";
+import { scriptDocuments } from "@/utils/scriptDocuments";
 
 const targetSchema = z.strictObject({ connectionId: z.uuid().optional(), directory: z.string().min(1).max(4096).optional(), canvasId: z.string().min(1).max(256).optional() });
 const requestSchema = z.strictObject({ target: targetSchema.optional(), args: z.record(z.string(), z.unknown()) });
@@ -140,6 +142,14 @@ export async function getMcpTools(): Promise<McpTool[]> {
       return current.execute(crypto.randomUUID(), args, signal, undefined, context);
     }));
   }
+  tools.push(wrapTool("scriptDocuments", "按节点 ID 管理剧本的故事大纲(outline)、人物小传(characters)、场景(scenes)、道具(props)和分集(episode)。operation.action: read/create/writeSection/addEpisode/renameEpisode/removeEpisode。修改必须携带最近 read 返回的 revision 作为 expectedRevision，冲突后重读并合并，禁止盲目覆盖。显式 target.directory 时无需打开画布；新建节点使用画布 addNodes，create 仅新建文档。", z.toJSONSchema(scriptRequestSchema, { io: "input" }), async (input, target, signal) => {
+    const { nodeId, operation } = scriptRequestSchema.parse(input);
+    const workspaceTool = (await listTools()).find(tool => tool.name === "workspace");
+    if (!workspaceTool?.enabled || workspaceTool.loadError) throw new Error("工作区文件工具未启用或加载失败");
+    if (operation.action !== "read" && "readOnly" in workspaceTool.config && workspaceTool.config.readOnly === true) throw new Error("当前工作区文件工具为只读模式");
+    const directory = target.directory && !target.connectionId && !target.canvasId ? await resolveDirectory(target.directory) : (await resolveTarget(target)).directory!;
+    return scriptDocuments(directory, nodeId, operation, signal);
+  }));
   const fileSchema = z.strictObject({
     action: z.enum(["list", "mkdir", "rename", "remove", "readBinary", "writeBinary"]), path: z.string().max(4096).default(""),
     target: z.string().max(4096).optional(), recursive: z.boolean().default(false),

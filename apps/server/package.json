@@ -35,6 +35,7 @@
     "@toonflow/file": "workspace:*",
     "@toonflow/i18n": "workspace:*",
     "@toonflow/mcp": "workspace:*",
+    "@toonflow/node-script": "workspace:*",
     "@toonflow/providers": "workspace:*",
     "@toonflow/teams-scaffold": "workspace:*",
     "@toonflow/tool-asset-operator": "workspace:*",

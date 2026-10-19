@@ -1,5 +1,6 @@
 import type { AgentMention } from "./runtime/types";
 import { getDocumentMimeType, getTextMimeType } from "../lib/documentFormats";
+import { scriptDocumentSchema, scriptMarkdown, scriptPath } from "@toonflow/node-script/document";
 
 export type MentionNode = { id: string; name: string; outputCount: number; available: boolean; dataType?: string; thumbnail?: { url: string; mimeType: string } };
 export type MentionOutput = { id: string; name: string; dataType: string; preview: string; available: boolean; thumbnail?: { url: string; mimeType: string } };
@@ -30,6 +31,10 @@ export function mentionNodeName(node: MentionCanvasNode) {
 
 export function mentionOutputValue(node: MentionCanvasNode, outputId: string) {
   const data = nodeData(node);
+  if (node.type === "remote-scriptNode" && outputId === "text" && typeof data.scriptPath === "string") {
+    if (data.scriptPath !== scriptPath(node.id)) throw new Error("剧本文件路径无效");
+    return { dataType: "STRING", scriptPath: data.scriptPath };
+  }
   const outputs = mentionRecord(data.outputs) ? data.outputs : {};
   const output = outputs[outputId];
   if (mentionRecord(output)) {
@@ -68,10 +73,11 @@ export function mentionNodeOutputs(node: MentionCanvasNode): MentionOutput[] {
     if (mentionRecord(output)) names.set(id, { name: id, dataType: String(output.dataType ?? "") });
   }
   if (!names.size && node.type === "remote-textNode" && (data.textPath || data.textSnapshot)) names.set("text", { name: "文本输出", dataType: "STRING" });
+  if (!names.size && node.type === "remote-scriptNode" && data.scriptPath) names.set("text", { name: "完整剧本", dataType: "STRING" });
   return [...names].map(([id, item]) => {
     const output = mentionOutputValue(node, id);
-    const available = !!output && (output.textPath !== undefined || (typeof output.value === "string" ? !!output.value.length : output.value !== undefined));
-    const preview = output?.textPath ? "文本内容" : mentionRecord(output?.value) ? String(output.value.url).slice(-160).split(/[\\/]/).pop() ?? ""
+    const available = !!output && (output.scriptPath !== undefined || output.textPath !== undefined || (typeof output.value === "string" ? !!output.value.length : output.value !== undefined));
+    const preview = output?.scriptPath ? "完整剧本" : output?.textPath ? "文本内容" : mentionRecord(output?.value) ? String(output.value.url).slice(-160).split(/[\\/]/).pop() ?? ""
       : output?.value === undefined ? "暂无输出" : String(output.value).slice(0, 160);
     const media = output?.value;
     const thumbnail = output && ["IMAGE", "MASK", "VIDEO"].includes(output.dataType) && mentionRecord(media)
@@ -114,7 +120,8 @@ export async function createCanvasMention(node: MentionCanvasNode, canvasId: str
   const output = mentionNodeOutputs(node).find(output => output.id === outputId);
   const selected = mentionOutputValue(node, outputId);
   if (!output?.available || !selected) throw new Error("这个输出暂无内容，请重新选择");
-  const value = selected.textPath === undefined ? selected.value : await readText(selected.textPath);
+  const value = selected.scriptPath ? scriptMarkdown(scriptDocumentSchema.parse(JSON.parse(await readText(selected.scriptPath))))
+    : selected.textPath === undefined ? selected.value : await readText(selected.textPath);
   if (typeof value === "string" && value.length > 100000) throw new Error("文本引用最多支持 100000 个字符，请缩小内容后重试");
   if (typeof value === "string" && !value.trim()) throw new Error("这个输出暂无内容，请重新选择");
   const canvasName = canvasId.replace(/\.json$/i, "").slice(0, 255);

@@ -55,8 +55,8 @@ import { IconEdit, IconFileText, IconSparkles, IconArrowUp } from "@tabler/icons
 import { nodeSkeleton, nodeTools, useNode, z, type NodeAiModel, type NodeHandle } from "@toonflow/nodes-scaffold/runtime";
 import { groupNodeModels } from "@toonflow/node-shared/groupNodeModels";
 import { useNodeReferences } from "@toonflow/node-shared/useNodeReferences";
-import markdownEditor from "./markdownEditor.vue";
-import markdownPreview from "./markdownPreview.vue";
+import markdownEditor from "@toonflow/node-shared/markdownEditor";
+import markdownPreview from "@toonflow/node-shared/markdownPreview";
 import referenceItem from "@toonflow/node-shared/referenceItem";
 import promptInput from "@toonflow/node-shared/promptInput";
 import { useNodeDocumentState, type NodeDocumentContext } from "@toonflow/nodes-scaffold/nodeDocument";

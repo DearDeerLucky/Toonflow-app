@@ -11,7 +11,9 @@
     "./showNodeError": "./src/showNodeError.ts",
     "./useNodeReferences": "./src/useNodeReferences.ts",
     "./useNodeGeneration": "./src/useNodeGeneration.ts",
-    "./groupNodeModels": "./src/groupNodeModels.ts"
+    "./groupNodeModels": "./src/groupNodeModels.ts",
+    "./markdownEditor": "./src/markdown/markdownEditor.vue",
+    "./markdownPreview": "./src/markdown/markdownPreview.vue"
   },
   "scripts": {
     "typecheck": "vue-tsc --noEmit"
@@ -19,7 +21,22 @@
   "peerDependencies": {
     "vue": "^3.5.42",
     "@vue-flow/core": "^1.48.2",
-    "element-plus": "^2.14.5"
+    "element-plus": "^2.14.5",
+    "@tiptap/vue-3": "3.31.3",
+    "@tiptap/core": "3.31.3",
+    "@tiptap/pm": "3.31.3",
+    "@tiptap/starter-kit": "3.31.3",
+    "@tiptap/markdown": "3.31.3",
+    "@tiptap/extension-list": "3.31.3",
+    "@tiptap/extension-table": "3.31.3",
+    "@tiptap/extension-image": "3.31.3",
+    "@tiptap/extension-highlight": "3.31.3",
+    "@tiptap/extension-superscript": "3.31.3",
+    "@tiptap/extension-subscript": "3.31.3",
+    "@tiptap/extension-text-align": "3.31.3",
+    "@tiptap/extension-find-and-replace": "3.31.3",
+    "marked": "18.0.13",
+    "dompurify": "3.4.16"
   },
   "dependencies": {
     "@tabler/icons-vue": "^3.46.0",
