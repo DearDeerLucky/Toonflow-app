@@ -1,5 +1,6 @@
 import { canvasSchemas, type CanvasToolCall } from "@toonflow/tool-canvas/runtime";
 import type { NodeToolsContext } from "@toonflow/tools-scaffold/runtime";
+import { sha256 } from "@noble/hashes/sha2.js";
 
 type CanvasNode = { id: string; type?: string; label?: unknown; position: { x: number; y: number }; selected?: boolean; data: Record<string, unknown> };
 type CanvasEdge = { id: string; source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null };
@@ -160,7 +161,8 @@ export function createCanvasQueries(source: {
       canvases: (args as { include?: string[] }).include?.includes("canvases") ? await source.canvases(signal) : [],
       types: (args as { include?: string[] }).include?.includes("nodeTypes") ? source.nodeTypes() : [],
     } : undefined;
-    const digest = await crypto.subtle.digest("SHA-256", encoder.encode(JSON.stringify([name, filters, metadata])));
+    const queryBytes = encoder.encode(JSON.stringify([name, filters, metadata]));
+    const digest = crypto.subtle ? await crypto.subtle.digest("SHA-256", queryBytes) : sha256(queryBytes);
     signal.throwIfAborted();
     const key = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
     const revision = name === "getCanvasEdges" ? source.edgeRevision() : name === "getNodeTools" ? `${source.nodeRevision()}:${source.nodeTools().version}` : source.nodeRevision();

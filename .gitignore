@@ -31,3 +31,22 @@ Thumbs.db
 *.keychain
 *.keychain-db
 .tmp/
+
+# MiniMovie local deployment data and credentials are never source changes.
+/models/
+/assets/
+/projects/
+/logs/
+/config/secrets/
+/config/tls/
+**/secrets/
+**/.aws/
+**/.codex/
+*.pem
+*.key
+*.ckpt
+*.safetensors
+*.gguf
+*.onnx
+*[Tt]oken*.txt
+*[Ss]ecret*.txt
