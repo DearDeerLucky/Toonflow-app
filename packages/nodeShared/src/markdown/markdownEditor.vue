@@ -31,6 +31,7 @@ const editor = shallowRef<Editor>();
 const ready = computed(() => !!editor.value);
 const error = ref("");
 const locked = computed(() => !!(props.disabled || props.readonly));
+const editorAttributes = computed(() => ({ class: "textNodeMarkdown", "aria-label": props.ariaLabel || "编辑文本内容", role: "textbox", "aria-multiline": "true" }));
 let lastMarkdown = "";
 
 function destroyEditor() {
@@ -48,7 +49,7 @@ function rebuild() {
       content: parseMarkdownContent(props.modelValue),
       editable: !locked.value,
       editorProps: {
-        attributes: { class: "textNodeMarkdown", "aria-label": props.ariaLabel || "编辑文本内容", role: "textbox", "aria-multiline": "true" },
+        attributes: editorAttributes.value,
         transformPastedHTML: parseMarkdownContent,
         handlePaste(_view, event) {
           const current = editor.value;
@@ -79,6 +80,10 @@ watch(() => props.modelValue, value => {
   } catch (cause) { error.value = cause instanceof Error ? cause.message : "正文更新失败"; }
 });
 watch(locked, value => editor.value?.setEditable(!value, false));
+watch(editorAttributes, attributes => {
+  const current = editor.value;
+  if (current) current.setOptions({ editorProps: { ...current.options.editorProps, attributes } });
+});
 onBeforeUnmount(destroyEditor);
 
 function run(action: "heading" | "bold" | "italic" | "list" | "undo" | "redo") {
