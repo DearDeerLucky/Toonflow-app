@@ -29,6 +29,7 @@ import { useWorkspaceStore } from "@/stores/workspace";
 import { createCanvasMention, mentionNodeOutputs, queryMentionNodes, type MentionCanvasSource } from "@toonflow/server/agent/mentionSources";
 import type { NodeDocumentState } from "@toonflow/nodes-scaffold/nodeDocument";
 import { copyCanvasFiles, readCanvasFiles, type DocumentNode, type DocumentNodeOptions } from "./canvasFiles";
+import { canvasPreferenceKey } from "./canvasSync";
 
 const props = withDefaults(defineProps<{ active?: boolean; settingsVisible?: boolean }>(), { active: true, settingsVisible: false });
 const selectedTool = defineModel<"move" | "hand">("selectedTool", { default: "move" });
@@ -42,6 +43,12 @@ const canvasReady = computed(() => activeInstance.value?.canvasReady ?? false);
 const canvasListReady = computed(() => activeInstance.value?.canvasListReady ?? false);
 const lifetime = new AbortController();
 const workspaceStore = useWorkspaceStore();
+watch(canvasId, id => {
+  const directory = workspaceStore.project?.directory;
+  if (directory && id) {
+    try { localStorage.setItem(canvasPreferenceKey(directory), id); } catch { /* 存储不可用不阻止切换画布。 */ }
+  }
+});
 const canvases = shallowRef<{ id: string; name: string }[]>([]);
 let fileActionBusy = false;
 provide("canvasList", canvases);

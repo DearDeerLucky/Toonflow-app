@@ -87,7 +87,8 @@ import { Panel, useVueFlow, type FlowExportObject } from "@vue-flow/core";
 import { ElMessage, ElMessageBox, type DropdownInstance, type FilterNodeMethodFunction, type InputInstance, type LoadFunction, type TreeInstance } from "element-plus";
 import { IconVector, IconCheck, IconChevronDown, IconChevronUp, IconChevronRight, IconDots, IconFolder, IconFolderOpen, IconFolderPlus, IconPlus, IconSearch } from "@tabler/icons-vue";
 import { useWorkspaceStore } from "@/stores/workspace";
-import useWorkspaceFiles from "@/lib/workspaceFiles";
+import useWorkspaceFiles, { type TextSnapshot } from "@/lib/workspaceFiles";
+import { canvasPreferenceKey, parseCanvasSnapshot } from "../canvasSync";
 import { getCanvasAssetDirectories, isCanvasFile } from "@/pages/workspace/canvasFile";
 import tfAccount from "@/components/settings/tfAccount.vue";
 import { providerBalances, tfBalanceApiKey, saveTfMediaApiKey, refreshProviderBalance } from "@/lib/providerBilling";
@@ -98,6 +99,7 @@ const props = defineProps<{
   activateCanvas?: (id: string, signal?: AbortSignal) => Promise<void>;
   flushSave: (action?: () => Promise<void>) => Promise<void>;
 }>();
+const emit = defineEmits<{ loaded: [snapshot: TextSnapshot] }>();
 const workspaceStore = useWorkspaceStore();
 const balanceVisible = ref(false);
 const rechargeVisible = ref(false);
@@ -330,7 +332,18 @@ watch(() => props.directory, async (directory, _previous, onCleanup) => {
     folders.value = entries.folders;
     loadedDirectories.value = [""];
     canvases.value = loaded;
-    if (canvases.value[0]) await applyCanvas(canvases.value[0].id, directory);
+    let remembered: string | null = null;
+    try { remembered = localStorage.getItem(canvasPreferenceKey(directory)); } catch { /* 禁用浏览器存储时仍可打开画布。 */ }
+    if (remembered && !canvases.value.some(canvas => canvas.id === remembered)) {
+      try {
+        if (await isCanvasFile(useWorkspaceFiles(directory), remembered, controller.signal)) canvases.value = [...canvases.value, { id: remembered, name: remembered.split("/").at(-1)!.slice(0, -5) }];
+      } catch (error) {
+        controller.signal.throwIfAborted();
+        if (!axios.isAxiosError(error) || error.response?.status !== 404) throw error;
+      }
+    }
+    const first = canvases.value.find(canvas => canvas.id === remembered) ?? canvases.value[0];
+    if (first) await applyCanvas(first.id, directory, controller.signal);
   } catch (err) {
     if (!cancelled) {
       loadError.value = errorMessage(err, "读取画布失败");
@@ -383,11 +396,10 @@ async function applyCanvas(canvasId: string, directory: string, signal?: AbortSi
     checkCanvasDirectory(directory, signal);
     return;
   }
-  if (!nextCanvas.flow) {
-    const data = await useWorkspaceFiles(directory).readJson<Partial<NonNullable<Canvas["flow"]>> & { toonflowCanvas?: boolean } | null>(nextCanvas.id);
+  const snapshot = await useWorkspaceFiles(directory).readTextSnapshot(nextCanvas.id, { signal });
+  {
+    const data = parseCanvasSnapshot(snapshot);
     checkCanvasDirectory(directory, signal);
-    if (data?.toonflowCanvas !== true || !Array.isArray(data.nodes) || !Array.isArray(data.edges) || !data.viewport
-      || ![data.viewport.x, data.viewport.y, data.viewport.zoom].every(Number.isFinite) || data.viewport.zoom <= 0) throw new Error("画布文件格式无效");
     // 旧画布可能保存了临时导出进度，重新打开时任务已不存在。
     for (const node of data.nodes) if (node.type === "remote-videoNode" && node.data) delete node.data.exportProgress;
     nextCanvas.flow = { nodes: data.nodes, edges: data.edges, viewport: data.viewport };
@@ -403,6 +415,7 @@ async function applyCanvas(canvasId: string, directory: string, signal?: AbortSi
   await setViewport(nextCanvas.flow.viewport);
   await nextTick();
   checkCanvasDirectory(directory);
+  emit("loaded", snapshot);
   boundCanvas.value = nextCanvas;
   activeCanvasId.value = nextCanvas.id;
   signal?.throwIfAborted();

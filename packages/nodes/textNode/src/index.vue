@@ -103,6 +103,7 @@ let textLoading: Promise<void> | undefined;
 let textSaving = Promise.resolve();
 let textSnapshot: Awaited<ReturnType<typeof textFiles.readTextSnapshot>> | undefined;
 let textRevision = 0;
+let syncingText = false;
 const documentState = useNodeDocumentState();
 function saveText(value: string) {
   const revision = ++textRevision;
@@ -135,6 +136,18 @@ nodeEvent.on("save", async (reason) => {
     catch { await saveText(outputs.value.text.value); }
   } while (pending !== textSaving);
   if (reason === "reload" && generating.value) throw new Error("文本正在生成，请完成后再刷新节点");
+});
+nodeEvent.on("sync", async () => {
+  if (!textReady.value || textReloading.value || generating.value || editing.value || documentState.dirty || documentState.error || !textSnapshot) return;
+  const previous = textSnapshot;
+  const revision = textRevision;
+  const snapshot = await textFiles.readTextSnapshot(textPath);
+  if (previous !== textSnapshot || revision !== textRevision || documentState.dirty || editing.value || generating.value || snapshot.revision === previous.revision) return;
+  syncingText = true;
+  try {
+    textSnapshot = snapshot;
+    outputs.value.text.value = snapshot.text;
+  } finally { syncingText = false; }
 });
 onMounted(() => { textLoading = loadText(); });
 async function loadText(fromDisk = false) {
@@ -193,7 +206,7 @@ async function reloadText() {
 }
 
 watch(() => outputs.value.text.value, async (value) => {
-  if (!textReady.value) return;
+  if (!textReady.value || syncingText) return;
   documentState.dirty = true;
   if (generating.value) return;
   try { await saveText(value); }

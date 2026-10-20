@@ -18,6 +18,19 @@ export default router.put("/", validateFields({ directory: z.string().min(1).max
   let revision: string | undefined;
   try {
     let bytes = req.body ?? Buffer.alloc(0);
+    if (!req.query.expectedRevision && req.query.exclusive !== "true" && /\.json$/i.test(path)) {
+      const previous = await readFile(path).catch(error => {
+        if (error.code === "ENOENT") return undefined;
+        throw error;
+      });
+      const isCanvas = (content: Buffer | undefined) => {
+        if (!content) return false;
+        const encoding = content[0] === 0xff && content[1] === 0xfe ? "utf-16le" : content[0] === 0xfe && content[1] === 0xff ? "utf-16be" : "utf-8";
+        try { return JSON.parse(new TextDecoder(encoding, { fatal: true }).decode(content))?.toonflowCanvas === true; }
+        catch { return false; }
+      };
+      if (isCanvas(previous) || isCanvas(bytes)) throw Object.assign(new Error("保存画布必须提供读取时的版本号，请刷新旧版页面后重试；磁盘内容未修改"), { status: 409, code: "EREVISIONREQUIRED" });
+    }
     if (req.query.expectedRevision) {
       const previous = await readFile(path).catch(error => {
         if (error.code === "ENOENT") throw Object.assign(new Error("文件已被删除或移动，未覆盖磁盘内容"), { status: 409, code: "ESTALE" });

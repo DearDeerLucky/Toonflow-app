@@ -161,7 +161,7 @@ export function useCanvasHistory(flow: ReturnType<typeof useVueFlow>, binding: (
     commit();
   });
 
-  watch(binding, value => {
+  function reset() {
     revision++;
     record.cancel();
     snapshots.value = [];
@@ -171,10 +171,11 @@ export function useCanvasHistory(flow: ReturnType<typeof useVueFlow>, binding: (
     applying.value = false;
     grouping.value = 0;
     dragging = false;
-    if (value) commit();
-  }, { immediate: true, flush: "sync" });
+    if (binding()) commit();
+  }
+  watch(binding, reset, { immediate: true, flush: "sync" });
   onScopeDispose(() => { revision++; record.cancel(); });
 
   const getRetainedNodes = () => [...nodeReferences.values(), ...flow.getNodes.value];
-  return { canUndo, canRedo, record, commit, undo, redo, batch, getRetainedNodes };
+  return { canUndo, canRedo, record, commit, undo, redo, batch, reset, getRetainedNodes };
 }

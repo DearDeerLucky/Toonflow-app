@@ -43,8 +43,9 @@ export async function readCanvasFiles(files: Files, path = "", options: Omit<Doc
   return canvases;
 }
 
-export async function copyCanvasFiles(files: Files, path: string, target: string) {
-  const canvases = await readCanvasFiles(files, path);
+export async function copyCanvasFiles(files: Files, path: string, target: string, localCanvas?: CanvasFile) {
+  // 冲突恢复复制未能落盘的本地快照，复用同一套节点、素材和引用隔离逻辑。
+  const canvases = localCanvas ? [{ id: path, name: path.split("/").at(-1)!.slice(0, -5), data: localCanvas }] : await readCanvasFiles(files, path);
   if (!canvases.length) { await files.copy(path, target); return []; }
   const temporary = `.toonflowCopy${crypto.randomUUID()}`;
   const root = canvases.length ? (await files.list()).entries : [];
@@ -125,7 +126,8 @@ export async function copyCanvasFiles(files: Files, path: string, target: string
       }
       for (const edge of canvas.data.edges) Object.assign(edge, { id: crypto.randomUUID(), source: ids.get(edge.source)!, target: ids.get(edge.target)!, selected: false });
       const suffix = canvas.id.slice(path.length);
-      await files.writeJson(temporary + suffix, canvas.data);
+      const snapshot = await files.readTextSnapshot(temporary + suffix);
+      await files.writeTextSnapshot(temporary + suffix, `${JSON.stringify(canvas.data, null, 2)}\n`, snapshot);
       canvas.id = target + suffix;
       canvas.name = canvas.id.split("/").at(-1)!.slice(0, -5);
     }
