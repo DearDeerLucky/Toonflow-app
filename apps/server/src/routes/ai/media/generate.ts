@@ -5,11 +5,13 @@ import { validateFields } from "@/lib/middleware";
 import { success, error, errorFromCause } from "@/lib/responseFormat";
 import u from "@/utils";
 import { translateMessage, validationOptions } from "@/lib/i18n";
+import { requireLocalCodexRequest } from "@/agent/runtime/codexClient";
 
 export default Router().post("/", validateFields({
   directory: z.string().min(1).max(4096), mediaType: z.enum(["image", "video", "audio"]),
 }), async (req, res) => {
   const { directory, mediaType, ...request } = req.body;
+  if (request.providerId === "codexNative") requireLocalCodexRequest(req);
   const parsed = (mediaType === "image" ? imageGenerationSchema : mediaType === "video" ? videoGenerationSchema : audioGenerationSchema).safeParse(request, validationOptions());
   if (!parsed.success) {
     res.status(400).json(error("参数错误", parsed.error.issues.map(issue => ({ ...issue, message: translateMessage(issue.message) })), 400));

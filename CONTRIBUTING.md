@@ -164,7 +164,9 @@ bun run dev:desktop
 bun apps/desktop/node_modules/electrobun/bin/electrobun.cjs prepare
 ```
 
-Intel Mac 则先安装兼容 SDK，并运行一次桌面开发或构建命令生成适配文件。类型检查本身不会安装依赖、生成适配文件或编译原生库。只改 Web 或 Server 时，可以先执行下面对应工作区的检查。
+仓库在 `hutch.config.ts` 固定可用的 Hutch CLI 版本；Electrobun SDK 仍使用桌面包中声明的精确版本。不要手工补写或提交 `.hutch/devkit` 中的生成声明。
+
+Intel Mac 则先安装兼容 SDK，并运行一次桌面开发或构建命令生成适配文件。类型检查本身不会安装依赖、生成适配文件或编译原生库。Web、Server 和移动端从根目录 `appVersion.ts` 读取共享版本号，不依赖 `.hutch/devkit`；只检查这些工作区时无须准备桌面 SDK。桌面配置仍由正式 SDK 类型校验。
 
 ### 按改动选择命令
 

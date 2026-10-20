@@ -17,7 +17,7 @@ import { createSkillContext } from "@/agent/skills";
 import { createAssetContext } from "@/agent/assets";
 import { readDocument } from "@/utils/documents";
 
-export function createAgentToolContext(cwd: string, config: Record<string, unknown> = {}, canvas?: CanvasContext, question?: QuestionContext, workspaceAvailable = true): ToolContext {
+export function createAgentToolContext(cwd: string, config: Record<string, unknown> = {}, canvas?: CanvasContext, question?: QuestionContext, workspaceAvailable = true, localCodex = false): ToolContext {
   const skillsDirectory = join(dirname(conf.path), "skills");
   const requireWorkspace = () => { if (!workspaceAvailable) throw new Error("此对话未提供工作目录，无法使用文件或媒体操作"); };
   const resolvePath = async (path: string, readOnly = false) => {
@@ -77,7 +77,10 @@ export function createAgentToolContext(cwd: string, config: Record<string, unkno
     ffmpeg: signal => { requireWorkspace(); return createWorkspaceFfmpeg(cwd, signal); },
     media: workspaceAvailable ? {
       listModels: listMediaModels,
-      generateImage: (request, signal) => generateMedia(cwd, "image", request, signal),
+      generateImage: (request, signal) => {
+        if (request.providerId === "codexNative" && !localCodex) throw new Error("Codex 原生生图请通过本机图片节点或本机 Codex Agent 使用");
+        return generateMedia(cwd, "image", request, signal);
+      },
       generateVideo: (request, signal) => generateMedia(cwd, "video", request, signal),
       generateAudio: (request, signal) => generateMedia(cwd, "audio", request, signal),
     } : undefined,
@@ -100,10 +103,10 @@ export function createAgentToolContext(cwd: string, config: Record<string, unkno
   };
 }
 
-export async function createAgentTools(cwd: string, canvas?: CanvasContext, question?: QuestionContext): Promise<ToolDefinition[]> {
+export async function createAgentTools(cwd: string, canvas?: CanvasContext, question?: QuestionContext, localCodex = false): Promise<ToolDefinition[]> {
   const tools: ToolDefinition[] = [];
   const names = new Set<string>();
-  const context = createAgentToolContext(cwd, {}, canvas, question);
+  const context = createAgentToolContext(cwd, {}, canvas, question, true, localCodex);
   for (const item of await listTools()) {
     if (!item.enabled) continue;
     if (item.loadError) throw new Error(`${item.displayName}：${item.loadError}`);

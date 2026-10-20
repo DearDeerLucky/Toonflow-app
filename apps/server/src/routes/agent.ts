@@ -5,6 +5,7 @@ import type { AgentEvent } from "@/agent/runtime/types";
 import { validateFields } from "@/lib/middleware";
 import u from "@/utils";
 import { translateError, translateMessage } from "@/lib/i18n";
+import { requireLocalCodexRequest } from "@/agent/runtime/codexClient";
 
 const inputSchema = z.object({
   prompt: z.string().trim(), directory: z.string().min(1),
@@ -28,6 +29,7 @@ const inputSchema = z.object({
 
 export default Router().post("/", validateFields(inputSchema.shape), async (req, res) => {
   const { directory, canvas, ...options } = req.body as z.infer<typeof inputSchema>;
+  if (options.providerId === "codexLocal") requireLocalCodexRequest(req);
   const cwd = await u.workspace.resolveWorkspace(req, directory);
   res.set({ "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" });
   res.flushHeaders();

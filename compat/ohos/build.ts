@@ -1,6 +1,6 @@
 import { copyFile, cp, existsSync, mkdir, readFile, readdir, realpath, rm, writeAtomic } from "@toonflow/file";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
-import config from "../../electrobun.config";
+import { appVersion } from "../../appVersion";
 
 const projectRoot = resolve(import.meta.dir, "../..");
 const buildRoot = join(projectRoot, "build/ohos");
@@ -14,7 +14,7 @@ const ohpm = join(deveco, "tools/ohpm/bin/pm-cli.js");
 const setup = process.argv[2] === "setup";
 const runtimePath = resolve(process.env.ohosBunPath || join(buildRoot, "runtime/bun"));
 const abi = process.env.ohosArch || "arm64-v8a";
-const version = config.app.version;
+const version = appVersion;
 if (process.argv.length > (setup ? 3 : 2)) throw new Error("用法：bun compat/ohos/build.ts [setup]");
 if (process.platform !== "win32") throw new Error("当前 OHOS 打包使用 Windows DevEco Studio SDK。");
 if (!["arm64-v8a", "x86_64"].includes(abi)) throw new Error("ohosArch 必须为 arm64-v8a 或 x86_64。");

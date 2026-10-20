@@ -6,7 +6,7 @@
 
 ## 构建
 
-当前构建环境为 Windows、仓库已安装的 Bun 依赖及 DevEco Studio 26。生成工程的最低 API 为 12、目标 API 为 26，设备类型为 phone/tablet。版本沿用根目录 `electrobun.config.ts`，也可设置 `appVersion=X.Y.Z`。
+当前构建环境为 Windows、仓库已安装的 Bun 依赖及 DevEco Studio 26。生成工程的最低 API 为 12、目标 API 为 26，设备类型为 phone/tablet。版本由根目录 `appVersion.ts` 与其他端共享，也可设置 `appVersion=X.Y.Z`。
 
 在仓库根目录执行：
 

@@ -21,6 +21,16 @@
 
 需要从外部 Coding 工具操作 Toonflow 时，在“设置 → MCP”开启服务并复制客户端配置，支持 HTTP 与 stdio 连接。画布和节点等界面操作需要保持 Toonflow 窗口或网页打开，详见 [MCP 接入说明](../packages/mcp/README.md)。
 
+### 本机 Codex CLI 与原生生图
+
+安装支持 `app-server` 的 Codex CLI，并在运行 Toonflow 服务的电脑上完成 `codex login`。画布 Agent 的“模型与推理设置”会列出本机 CLI 返回的可用模型，无需向 Toonflow 复制登录凭据。找不到 CLI 时，可用 `TOONFLOW_CODEX_PATH` 指定可执行文件；Windows 也会查找 Codex 桌面安装目录。
+
+本机 Agent 复用已启用的技能、画布和媒体工具，支持读取节点、改提示词、调用已配置的 ComfyUI 供应商并回填结果。对话保存在项目 `.agent/sessions/`，继续同一对话恢复原生 thread；停止按钮中断当前执行。CLI 原生命令使用只读沙箱，额外审批交给面板，依赖 Pi 专属运行时上下文的第三方工具尚不保证兼容。
+
+图片生成节点可选择“Codex 原生生图 · GPT Image 2”（`codexNative / gpt-image-2`），需当前 CLI 登录方式支持原生生图。参考图通过节点真实图片输入传入，原图由现有媒体流程保存并自动回填，记录位于 `.agent/imageGenerations/`。当前尺寸与画质为原生 `auto`，目标比例随提示词传入，实际尺寸以输出为准；不自动缩放、放大、重试或切换其他供应商，准确额度消耗由供应方结算。
+
+这两个入口仅允许本机同源页面使用，不开放给其他设备或设备互联客户端。Codex 和 Toonflow 分别扫描自己的技能目录，安装技能不等于接通其全部外部插件。更新后若旧页面未列出新图片模型，刷新页面再选择，确认节点配置成功后才生成。
+
 <details>
 <summary><strong>通过网页唤起桌面安装插件</strong></summary>
 
@@ -171,14 +181,14 @@ xattr -dr com.apple.quarantine "/Applications/toonflow.app"
 
 **类型检查与 SDK**
 
-若 Windows x64 或 Apple Silicon 在首次构建前单独进行类型检查，先准备 Electrobun SDK：
+若 Windows x64 或 Apple Silicon 在首次构建前单独检查桌面端或全部工作区类型，先准备 Electrobun SDK：
 
 ```sh
 bun apps/desktop/node_modules/electrobun/bin/electrobun.cjs prepare
 bun run typecheck
 ```
 
-Intel Mac 在安装兼容 SDK 后，先运行桌面开发或构建命令生成适配文件。类型检查不会隐式安装依赖或编译原生库。
+Intel Mac 在安装兼容 SDK 后，先运行桌面开发或构建命令生成适配文件。类型检查不会隐式安装依赖或编译原生库。仅检查 Web、Server 或移动端无须桌面 SDK；共享版本号由根目录 `appVersion.ts` 提供。
 
 </details>
 

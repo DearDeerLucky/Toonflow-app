@@ -48,7 +48,7 @@ import { customProviders, modelChoices } from "@/stores/settings";
 
 const selectedModel = defineModel<string>({ default: "" });
 const reasoningEffort = defineModel<string>("reasoningEffort", { default: "" });
-const props = withDefaults(defineProps<{ active?: boolean; disabled?: boolean }>(), { active: true, disabled: false });
+const props = withDefaults(defineProps<{ active?: boolean; disabled?: boolean; additionalProviders?: { id: string; label: string; models: { id: string; label: string }[] }[] }>(), { active: true, disabled: false });
 const visible = ref(false);
 const reasoningOptions = [
   { label: "默认", value: "" },
@@ -56,10 +56,11 @@ const reasoningOptions = [
   { label: "中", value: "medium" },
   { label: "高", value: "high" },
 ];
-const modelGroups = computed(() => customProviders.value.toSorted((left, right) => Number(right.id === "tfRouter") - Number(left.id === "tfRouter")));
-const selectedModelChoice = computed(() => modelChoices.value.find(item => item.value === selectedModel.value));
+const modelGroups = computed(() => [...(props.additionalProviders ?? []), ...customProviders.value.toSorted((left, right) => Number(right.id === "tfRouter") - Number(left.id === "tfRouter"))]);
+const availableModels = computed(() => [...(props.additionalProviders ?? []).flatMap(provider => provider.models.map(model => ({ value: JSON.stringify([provider.id, model.id]), modelId: model.id, label: model.label }))), ...modelChoices.value]);
+const selectedModelChoice = computed(() => availableModels.value.find(item => item.value === selectedModel.value));
 const reasoningLabel = computed(() => reasoningOptions.find(item => item.value === reasoningEffort.value)?.label ?? "默认");
-watch(modelChoices, items => {
+watch(availableModels, items => {
   if (!selectedModel.value) selectedModel.value = items[0]?.value ?? "";
 }, { immediate: true });
 watch(() => !props.active || props.disabled, close => { if (close) visible.value = false; });

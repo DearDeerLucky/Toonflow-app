@@ -3,14 +3,14 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import components from "unplugin-vue-components/vite";
 import { ElementPlusResolver } from "unplugin-vue-components/resolvers";
-import desktopConfig from "../../electrobun.config.ts";
+import { appVersion } from "../../appVersion.ts";
 import postcssConfig from "../../postcss.config.ts";
 import { i18nPlugin } from "@toonflow/i18n/vite";
 
 export default defineConfig({
   css: { postcss: postcssConfig },
   define: {
-    "import.meta.env.appVersion": JSON.stringify(desktopConfig.app.version),
+    "import.meta.env.appVersion": JSON.stringify(appVersion),
   },
   server: {
     proxy: {

@@ -113,7 +113,7 @@
       <teleport v-for="target in draftMentionTargets" :key="target.key" :to="target.element"><mentionThumbnail v-bind="mentionThumbnailProps(target.mention)" :directory="directory"><icon-photo :size="14" /></mentionThumbnail></teleport>
       <mentionContent ref="draftMentionPreview" :mentions="draftMentions" :directory="directory" removable @remove="removeDraftMention" />
       <div class="senderActions">
-        <modelPopover v-model="selectedModel" v-model:reasoningEffort="reasoningEffort" :active="active" :disabled="disabled" />
+        <modelPopover v-model="selectedModel" v-model:reasoningEffort="reasoningEffort" :active="active" :disabled="disabled" :additionalProviders="codexProviders" />
         <input ref="attachmentInput" type="file" :accept="attachmentAccept" multiple hidden :disabled="locked" @change="selectAttachments" />
         <el-button text circle :disabled="locked" aria-label="添加附件" title="添加附件" @click="attachmentInput?.click()"><icon-paperclip :size="16" /></el-button>
         <mentionMenu ref="mentionMenuRef" :directory="directory" :active="active" :disabled="locked || !directory" :query="mentionQuery" :editor="senderElement" :currentCanvasId="createCanvasContext?.()?.id" @open="captureMentionPosition" @select="insertMentions" @dismiss="mentionQuery = undefined" />
@@ -184,7 +184,7 @@ import { createPastedTextFile, readTextAttachment } from "./textAttachments";
 import useWorkspaceFiles from "@/lib/workspaceFiles";
 import { writeClipboardText } from "@/lib/clipboard";
 import anonymousData from "@/lib/anonymousData";
-import { modelChoices } from "@/stores/settings";
+import { agentModelChoices, codexModels, codexProviders, loadCodexModels } from "@/lib/codexAgent";
 import { useWorkspaceStore } from "@/stores/workspace";
 import type { AgentAttachment, AgentConversation, AgentMessage } from "./types";
 import type { AgentEvent, AgentMention, AgentToolCall } from "@toonflow/server/agent/types";
@@ -342,7 +342,19 @@ const selectedModel = ref(pendingMessage?.model ?? (props.initialSession?.provid
   ? JSON.stringify([props.initialSession.providerId, props.initialSession.modelId]) : ""));
 const contextMenuVisible = ref(false);
 const reasoningEffort = ref(pendingMessage?.reasoningEffort ?? (props.initialSession?.thinkingLevel === "off" ? "" : props.initialSession?.thinkingLevel ?? ""));
-const selectedModelChoice = computed(() => modelChoices.value.find(item => item.value === selectedModel.value));
+const selectedModelChoice = computed(() => agentModelChoices.value.find(item => item.value === selectedModel.value));
+watch(() => props.active && workspaceStore.project?.directory, async directory => {
+  if (!directory) return;
+  try {
+    await loadCodexModels(directory);
+    if (!props.initialSession?.providerId && !pendingMessage?.model) {
+      const model = codexModels.value.find(model => model.default) ?? codexModels.value[0];
+      if (model) selectedModel.value = JSON.stringify(["codexLocal", model.id]);
+    }
+  } catch (error) {
+    if (selectedModel.value.includes('"codexLocal"')) ElMessage.error(error instanceof Error ? error.message : "本机 Codex CLI 不可用");
+  }
+}, { immediate: true });
 const contextWindow = computed(() => contextUsage.value?.contextWindow ?? selectedModelChoice.value?.contextWindow ?? 262144);
 const contextPercent = computed(() => (contextUsage.value?.tokens ?? 0) / contextWindow.value * 100);
 const inputTokens = computed(() => stats.value ? stats.value.tokens.input + stats.value.tokens.cacheRead + stats.value.tokens.cacheWrite : 0);

@@ -24,11 +24,12 @@ import {
   type ActiveAgentSession,
 } from "@/agent/runtime/sessions";
 import { isMemoryEnabled } from "@/utils/personalization";
+import { runCodex } from "@/agent/runtime/codex";
 import { lockWorkspaceFiles, resolveWorkspacePath } from "@/utils/workspace/files";
 import { t } from "@/lib/i18n";
 import { decodeTextFile } from "@/lib/documentFormats";
 
-type AgentOptions = {
+export type AgentOptions = {
   prompt: string;
   attachments?: z.infer<typeof agentAttachmentsSchema>;
   mentions?: AgentMention[];
@@ -97,6 +98,10 @@ export async function run(
     if (attachments.length || mentions.length) throw Object.assign(new Error("请等子 Agent 当前回复结束后发送附件或提及"), { status: 400 });
     await active.session.prompt(prompt.trim(), { streamingBehavior: "steer", expandPromptTemplates: false });
     send({ type: "accepted" });
+    return;
+  }
+  if (providerId === "codexLocal") {
+    await runCodex({ prompt, attachments, mentions, cwd, providerId, modelId, thinkingLevel, sessionFile, resendFrom, canvas, question, signal, onCancel }, send);
     return;
   }
   const { provider, runtime } = await createAgentModel(providerId, modelId, thinkingLevel);

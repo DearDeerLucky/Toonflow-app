@@ -8,6 +8,7 @@ import { getMediaProvider, listMediaProviders, loadMediaProviderSource } from "@
 import { lockWorkspaceFiles, resolveWorkspacePath, writeWorkspaceFile } from "@/utils/workspace/files";
 import { beginGeneration, getProviderPrice } from "@/utils/media/billing";
 import { detectMimeType, readPriceReference } from "@/utils/media/priceReference";
+import { codexImageModel, generateCodexImage } from "@/utils/media/codexImage";
 
 const maxMediaSize = 100 * 1024 * 1024;
 const mediaExtensions: Record<string, string> = {
@@ -32,7 +33,7 @@ function imageOptions(value: unknown, pattern: RegExp) {
 
 export async function listMediaModels(): Promise<MediaModel[]> {
   const installedProviders = await listMediaProviders();
-  return installedProviders.flatMap(provider => provider.models.flatMap(model => {
+  return [codexImageModel, ...installedProviders.filter(provider => provider.id !== codexImageModel.providerId).flatMap(provider => provider.models.flatMap(model => {
     if (model.type !== "image" && model.type !== "video" && model.type !== "audio") return [];
     const builtIn = (mediaProviders as readonly Provider[]).find(item => item.id === provider.id)?.models.find(item => item.id === model.id);
     return [{
@@ -45,7 +46,7 @@ export async function listMediaModels(): Promise<MediaModel[]> {
         imageRatios: imageOptions(Array.isArray(model.imageRatios) ? model.imageRatios : builtIn?.imageRatios, /^[1-9]\d{0,3}:[1-9]\d{0,3}$/),
       } : {}),
     } as MediaModel];
-  }));
+  }))];
 }
 
 export async function readReference(cwd: string, reference: MediaReference, mediaType: string, signal?: AbortSignal): Promise<Extract<MediaInput, { type: "base64" }>> {
@@ -154,6 +155,7 @@ async function preparePriceRequest(directory: string | undefined, mediaType: "im
 
 export async function getMediaPrice(directory: string | undefined, mediaType: "image" | "video" | "audio", request: MediaGenerationRequest, signal?: AbortSignal) {
   signal?.throwIfAborted();
+  if (request.providerId === codexImageModel.providerId) return null;
   const provider = await configuredProvider(request, mediaType, signal, directory);
   if (!provider.getPrice) return null;
   const prepared = await preparePriceRequest(directory, mediaType, request, signal);
@@ -172,21 +174,27 @@ export async function generateMedia(
   const directory = await realpath(cwd);
   const outputDirectory = request.outputDirectory ?? "assets/generated";
   await resolveWorkspacePath(directory, outputDirectory, true);
-  const provider = await configuredProvider(request, mediaType, signal, directory);
-  const generate = mediaType === "image" ? provider.generateImage : mediaType === "video" ? provider.generateVideo : provider.generateAudio;
-  if (typeof generate !== "function") invalid(t`此供应商不支持${translateMessage({ image: "图片", video: "视频", audio: "音频" }[mediaType])}生成`);
-  const rules = Array.isArray(provider.rules) ? provider.rules : [];
-  if (rules.some(rule => rule.field === "apiKey") && (typeof provider.config.apiKey !== "string" || !provider.config.apiKey.trim())) invalid("请先在媒体模型设置中配置供应商 API Key");
+  const native = request.providerId === codexImageModel.providerId;
+  if (native && (mediaType !== "image" || request.modelId !== codexImageModel.modelId)) invalid("Codex 原生生图仅支持 GPT Image 2 图片生成");
+  if (native && request.size && request.size !== "auto") invalid("Codex CLI 原生生图的尺寸由工具自动控制，请选择 auto；目标构图可写入提示词");
+  const provider = native ? undefined : await configuredProvider(request, mediaType, signal, directory);
+  if (provider) {
+    const generate = mediaType === "image" ? provider.generateImage : mediaType === "video" ? provider.generateVideo : provider.generateAudio;
+    if (typeof generate !== "function") invalid(t`此供应商不支持${translateMessage({ image: "图片", video: "视频", audio: "音频" }[mediaType])}生成`);
+    const rules = Array.isArray(provider.rules) ? provider.rules : [];
+    if (rules.some(rule => rule.field === "apiKey") && (typeof provider.config.apiKey !== "string" || !provider.config.apiKey.trim())) invalid("请先在媒体模型设置中配置供应商 API Key");
+  }
   const prepared = await prepareRequest(directory, mediaType, request, readReference, signal);
   signal?.throwIfAborted();
-  const finish = beginGeneration(provider);
+  const finish = provider ? beginGeneration(provider) : () => {};
   const written: string[] = [];
   const result: GeneratedMedia[] = [];
   try {
     signal?.throwIfAborted();
     const { type, ...parameters } = prepared;
-    const assets = type === "audio" ? await provider.generateAudio!(parameters as AudioRequest)
-      : type === "image" ? await provider.generateImage!(parameters as ImageRequest) : await provider.generateVideo!(parameters as VideoRequest);
+    const assets = native ? await generateCodexImage(directory, parameters as ImageRequest, signal)
+      : type === "audio" ? await provider!.generateAudio!(parameters as AudioRequest)
+      : type === "image" ? await provider!.generateImage!(parameters as ImageRequest) : await provider!.generateVideo!(parameters as VideoRequest);
     if (!Array.isArray(assets) || !assets.length) invalid("供应商未返回生成结果");
     for (const asset of assets) {
       signal?.throwIfAborted();

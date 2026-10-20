@@ -7,7 +7,7 @@ import { getMissingBrowserFeatures } from "@toonflow/web/browserCapabilities";
 import { createRemoteConnection } from "@toonflow/server/remoteConnection";
 import { languageRequest, translateError, translateMessage } from "@toonflow/server/i18n";
 import { getRuntimePlatform, setRuntimeHost } from "@toonflow/server/platform";
-import config from "../../../electrobun.config";
+import { appVersion } from "../../../appVersion";
 
 const fromSource = import.meta.path.endsWith(".ts");
 const resources = fromSource ? resolve(import.meta.dirname, "../../../build") : import.meta.dirname;
@@ -21,7 +21,7 @@ let origin = "";
 setRuntimeHost("mobile");
 process.env.TOONFLOW_DATA_DIR = directory;
 await mkdir(exportDirectory, { recursive: true });
-const connection = await createRemoteConnection(directory, { deviceName: process.env.TOONFLOW_MOBILE_DEVICE_NAME || "Toonflow Android", appVersion: config.app.version });
+const connection = await createRemoteConnection(directory, { deviceName: process.env.TOONFLOW_MOBILE_DEVICE_NAME || "Toonflow Android", appVersion });
 // ACT: 临时导出不属于项目数据；应用被系统终止后，下次启动清理未完成的导出。
 for (const entry of await readdir(exportDirectory, { withFileTypes: true })) {
   if (entry.isFile() && exportId.test(entry.name)) await rm(resolve(exportDirectory, entry.name));
@@ -107,7 +107,7 @@ if (connection.proxy) {
   const { createApp } = await import("@toonflow/server/app");
   toonflow = await createApp({
     webRoot: resolve(resources, "web"),
-    appVersion: config.app.version,
+    appVersion,
     dataDirectory: directory,
     toolsRoot: resolve(resources, "tools"),
     nodesRoot: resolve(resources, "nodes"),
